@@ -2,6 +2,7 @@ package driver
 
 import (
 	"net/url"
+	"path"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -14,5 +15,6 @@ func init() {
 }
 
 func sqliteBuilder(c *url.URL) (gorm.Dialector, error) {
-	return sqlite.Open(c.Path), nil
+	fullPath := path.Join(c.Hostname(), c.Path)
+	return sqlite.Open(fullPath), nil
 }
