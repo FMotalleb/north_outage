@@ -27,8 +27,12 @@ func Serve(ctx context.Context) error {
 		return err
 	}
 	l.Info("config initialized", zap.Any("cfg", cfg))
-	if _, err := collector.Collect(ctx); err != nil {
+	var data []models.Event
+	if data, err = collector.Collect(ctx); err != nil {
 		return err
 	}
+	tx := db.Create(data)
+	err = tx.Apply(db.Config)
+	println(err)
 	return nil
 }

@@ -1,6 +1,11 @@
 package models
 
-import "time"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"time"
+)
 
 type Event struct {
 	ID      uint   `gorm:"primaryKey"`
@@ -10,4 +15,16 @@ type Event struct {
 
 	Start time.Time
 	End   time.Time
+}
+
+func (e *Event) ResetHash() {
+	data := fmt.Sprintf("%s|%s|%d|%d",
+		e.City,
+		e.Address,
+		e.Start.UnixNano(),
+		e.End.UnixNano(),
+	)
+
+	hash := sha256.Sum256([]byte(data))
+	e.Hash = hex.EncodeToString(hash[:])
 }
