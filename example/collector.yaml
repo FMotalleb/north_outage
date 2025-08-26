@@ -1,0 +1,60 @@
+collector:
+  pipeline:
+    browser: chromium
+    browser_params:
+      headless: false
+    steps:
+      - config:
+          timeout: 1500
+          nav_timeout: 1500
+      - goto: https://khamooshi.maztozi.ir/
+      - sleep: 1s
+      - loop: |-
+          {{ eval `JSON.stringify(
+            [...document.querySelectorAll('#ContentPlaceHolder1_ddlArea > option')]
+            .map((a) =>  a.getAttribute('value'))
+            .filter((a) => a!='-1' )
+            )`
+          }}
+        loop-key: addr
+        on-error: ignore
+        steps:
+          - goto: https://khamooshi.maztozi.ir/
+          - click: "#ContentPlaceHolder1_rbIsAddress"
+          - sleep: 50ms
+          - click: "#ContentPlaceHolder1_ddlArea"
+          - select: "#ContentPlaceHolder1_ddlArea"
+            values: "{{ addr }}"
+            on-error: ignore
+          - sleep: 50ms
+          - click: "#ContentPlaceHolder1_btnSearchOutage"
+          - element: "#ContentPlaceHolder1_grdOutages"
+            on-error: ignore
+            mode: table
+            set-var: |-
+              {{ eval "ContentPlaceHolder1_ddlArea.selectedOptions[0].text" }}
+      - loop: |-
+          {{ eval `JSON.stringify(
+            [...document.querySelectorAll('#ContentPlaceHolder1_ddlCity > option')]
+            .map((a) =>  a.getAttribute('value'))
+            .filter((a) => a!='-1' )
+            )`
+          }}
+        loop-key: city
+        on-error: ignore
+        steps:
+          - goto: https://khamooshi.maztozi.ir/
+          - click: "#ContentPlaceHolder1_rbIsAddress"
+          - click: "#ContentPlaceHolder1_ddlCity"
+          - select: "#ContentPlaceHolder1_ddlCity"
+            values: "{{ city }}"
+            on-error: ignore
+          - sleep: 50ms
+          - nop: |-
+              {{ eval `[...document.querySelectorAll('#ContentPlaceHolder1_ddlArea > option')]
+                .map((a) =>  a.innerText)
+                .filter((a) => !a.startsWith("--") )
+                .join(",")`
+              }}
+            set-var: |-
+              map.{{ eval "ContentPlaceHolder1_ddlCity.selectedOptions[0].text" }}

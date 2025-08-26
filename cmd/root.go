@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"os"
 
 	"github.com/fmotalleb/go-tools/git"
@@ -25,6 +26,7 @@ import (
 	"github.com/fmotalleb/go-tools/sysctx"
 	"github.com/spf13/cobra"
 
+	"github.com/fmotalleb/north_outage/config"
 	"github.com/fmotalleb/north_outage/service"
 )
 
@@ -33,17 +35,17 @@ var rootCmd = &cobra.Command{
 	Use:     "north-outage",
 	Short:   "A brief description of your application",
 	Version: git.String(),
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	PreRunE: func(cmd *cobra.Command, args []string) error {
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if verbose, err := cmd.Flags().GetBool("verbose"); err != nil {
 			return err
 		} else if verbose {
 			log.SetDebugDefaults()
+		}
+		return nil
+	},
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return errors.New("positional argument required (config file path)")
 		}
 		return nil
 	},
@@ -54,6 +56,11 @@ to quickly create a Cobra application.`,
 		if ctx, err = log.WithNewEnvLogger(ctx); err != nil {
 			return err
 		}
+		var cfg *config.Config
+		if cfg, err = config.ReadConfig(ctx, args[0]); err != nil {
+			return err
+		}
+		ctx = config.Attach(ctx, cfg)
 		return service.Serve(ctx)
 	},
 }

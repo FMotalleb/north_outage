@@ -16,7 +16,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 package main
 
-import "github.com/fmotalleb/north_outage/cmd"
+import (
+	"github.com/fmotalleb/north_outage/cmd"
+)
 
 func main() {
 	cmd.Execute()
