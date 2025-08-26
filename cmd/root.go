@@ -30,12 +30,12 @@ import (
 	"github.com/fmotalleb/north_outage/service"
 )
 
-// rootCmd represents the base command when called without any subcommands
+// rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:     "north-outage",
 	Short:   "A brief description of your application",
 	Version: git.String(),
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 		if verbose, err := cmd.Flags().GetBool("verbose"); err != nil {
 			return err
 		} else if verbose {
@@ -43,13 +43,13 @@ var rootCmd = &cobra.Command{
 		}
 		return nil
 	},
-	PreRunE: func(cmd *cobra.Command, args []string) error {
+	PreRunE: func(_ *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return errors.New("positional argument required (config file path)")
 		}
 		return nil
 	},
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, args []string) error {
 		ctx := context.Background()
 		ctx = sysctx.CancelWith(ctx, os.Interrupt, os.Kill)
 		var err error

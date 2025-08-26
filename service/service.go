@@ -34,7 +34,7 @@ func Serve(ctx context.Context) error {
 	return nil
 }
 
-func collectGarbage(ctx context.Context, maxAge time.Duration, db *gorm.DB) {
+func collectGarbage(maxAge time.Duration, db *gorm.DB) {
 	events := db.Table("events")
 	before := time.Now().Truncate(maxAge)
 	events.Where("end <= ?", before).Delete(true)
@@ -45,7 +45,7 @@ func collectCycle(ctx context.Context, cfg *config.Config, db *gorm.DB) error {
 	var err error
 	ctx, cancel := context.WithTimeout(ctx, cfg.CollectTimeout)
 	defer cancel()
-	collectGarbage(ctx, cfg.RotateAfter, db)
+	collectGarbage(cfg.RotateAfter, db)
 	if data, err = collector.Collect(ctx); err != nil {
 		return err
 	}

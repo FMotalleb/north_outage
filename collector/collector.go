@@ -81,8 +81,7 @@ const (
 	keyFrom  = "از ساعت"
 	keyUntil = "تا ساعت"
 	keyDate  = "تاریخ"
-	// Who cares really
-	// keyCause = "نوع خاموشی"
+	// keyCause = "نوع خاموشی".
 )
 
 func normalize(city string, input map[string]string) (*models.Event, bool) {
