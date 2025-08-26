@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"slices"
+	"time"
 
 	"github.com/fmotalleb/go-tools/log"
 	"go.uber.org/zap"
@@ -29,17 +30,25 @@ func Serve(ctx context.Context) error {
 		return err
 	}
 	l.Info("config initialized", zap.Any("cfg", cfg))
-	collectCycle(ctx, db)
+	collectCycle(ctx, cfg, db)
 	return nil
 }
 
-func collectCycle(ctx context.Context, db *gorm.DB) error {
+func collectGarbage(ctx context.Context, maxAge time.Duration, db *gorm.DB) {
+	events := db.Table("events")
+	before := time.Now().Truncate(maxAge)
+	events.Where("end <= ?", before).Delete(true)
+}
+
+func collectCycle(ctx context.Context, cfg *config.Config, db *gorm.DB) error {
 	var data []models.Event
 	var err error
+	ctx, cancel := context.WithTimeout(ctx, cfg.CollectTimeout)
+	defer cancel()
+	collectGarbage(ctx, cfg.RotateAfter, db)
 	if data, err = collector.Collect(ctx); err != nil {
 		return err
 	}
-
 	events := db.Table("events")
 	var oldHash []string
 	events.Select("hash").Find(&oldHash)
