@@ -31,7 +31,6 @@ func startCollectService(ctx context.Context, cfg *config.Config) error {
 		"collector job registered",
 		zap.Int("id", int(j)),
 	)
-
 	go scheduler.Start()
 	<-ctx.Done()
 	if innerCtx := scheduler.Stop(); innerCtx != nil {
@@ -41,8 +40,9 @@ func startCollectService(ctx context.Context, cfg *config.Config) error {
 }
 
 func collectSilent(ctx context.Context, cfg *config.Config) func() {
-	l := log.FromContext(ctx).Named("EventsGC")
+	l := log.FromContext(ctx).Named("CollectCycle")
 	return func() {
+		l.Debug("collect cycle began")
 		if err := collectCycle(ctx, cfg); err != nil {
 			l.Error("unhandled exception in collector cycle", zap.Error(err))
 		}
