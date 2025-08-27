@@ -8,9 +8,8 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	"github.com/go-co-op/gocron/v2"
-
 	"github.com/fmotalleb/go-tools/log"
+	"github.com/robfig/cron/v3"
 
 	"github.com/fmotalleb/north_outage/collector"
 	"github.com/fmotalleb/north_outage/config"
@@ -20,43 +19,23 @@ import (
 
 func startCollectService(ctx context.Context, cfg *config.Config) error {
 	l := log.FromContext(ctx).Named("Scheduler")
-	s, err := gocron.NewScheduler()
-	if err != nil {
-		l.Error("failed to build scheduler", zap.Error(err))
-		return err
-	}
-
-	j, err := s.NewJob(
-		gocron.CronJob(
-			cfg.CollectCycle,
-			false,
-		),
-		gocron.NewTask(
-			collectSilent,
-			ctx,
-			cfg,
-		),
-	)
+	scheduler := cron.New(cron.WithParser(cron.NewParser(
+		cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor,
+	)))
+	j, err := scheduler.AddFunc(cfg.CollectCycle, collectSilent(ctx, cfg))
 	if err != nil {
 		l.Error("failed to register job", zap.Error(err))
 		return err
 	}
-	var nextRun time.Time
-	if nextRun, err = j.NextRun(); err != nil {
-		l.Warn("failed to calculate next run time", zap.Error(err))
-	}
 	l.Info(
 		"collector job registered",
-		zap.String("id", j.ID().String()),
-		zap.String("name", j.Name()),
-		zap.Time("next-run", nextRun),
+		zap.Int("id", int(j)),
 	)
 
-	s.Start()
+	go scheduler.Start()
 	<-ctx.Done()
-	if err = s.Shutdown(); err != nil {
-		l.Error("failed to shutdown scheduler", zap.Error(err))
-		return err
+	if innerCtx := scheduler.Stop(); innerCtx != nil {
+		<-innerCtx.Done()
 	}
 	return nil
 }

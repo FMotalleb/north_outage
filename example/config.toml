@@ -1,6 +1,6 @@
 telegram_bot = "" # read from env: TELEGRAM_BOT
 database = "sqlite://outage.db"
-collect_cycle = "TZ=Asia/Tehran 6 * * * *"
+collect_cycle = "0 * * * *"
 max_age = "1h"
 
 [collector.pipeline]
