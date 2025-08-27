@@ -12,7 +12,7 @@
             "program": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
             "args": [
-                "example/config.toml",
+                "example/config.local.toml",
                 "-v"
             ]
         }

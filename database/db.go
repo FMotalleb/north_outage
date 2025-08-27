@@ -6,7 +6,12 @@ import (
 	"github.com/fmotalleb/north_outage/database/driver"
 )
 
-func NewDB(connection string) (*gorm.DB, error) {
+var rootDB *gorm.DB
+
+func Connect(connection string) (*gorm.DB, error) {
+	if rootDB != nil {
+		return rootDB, nil
+	}
 	var conn gorm.Dialector
 	var db *gorm.DB
 	var err error
@@ -16,5 +21,15 @@ func NewDB(connection string) (*gorm.DB, error) {
 	if db, err = gorm.Open(conn, &gorm.Config{}); err != nil {
 		return nil, err
 	}
+	rootDB = db
 	return db, nil
+}
+
+// Get requires db to be [Connect]ed first.
+// if called before a successful [Connect] will panic.
+func Get() *gorm.DB {
+	if rootDB == nil {
+		panic("database is not initialized")
+	}
+	return rootDB
 }

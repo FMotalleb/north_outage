@@ -2,14 +2,13 @@ package service
 
 import (
 	"context"
-	"slices"
-	"time"
+	"fmt"
+	"sync"
 
 	"github.com/fmotalleb/go-tools/log"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 
-	"github.com/fmotalleb/north_outage/collector"
+	"github.com/fmotalleb/north_outage/api"
 	"github.com/fmotalleb/north_outage/config"
 	"github.com/fmotalleb/north_outage/database"
 	"github.com/fmotalleb/north_outage/models"
@@ -22,7 +21,7 @@ func Serve(ctx context.Context) error {
 		return err
 	}
 	ctx = config.Attach(ctx, cfg)
-	db, err := database.NewDB(cfg.DatabaseConnection)
+	db, err := database.Connect(cfg.DatabaseConnection)
 	if err != nil {
 		return err
 	}
@@ -30,41 +29,25 @@ func Serve(ctx context.Context) error {
 		return err
 	}
 	l.Info("config initialized", zap.Any("cfg", cfg))
-	collectCycle(ctx, cfg, db)
-	return nil
-}
-
-func collectGarbage(maxAge time.Duration, db *gorm.DB) {
-	events := db.Table("events")
-	before := time.Now().Truncate(maxAge)
-	events.Where("end <= ?", before).Delete(true)
-}
-
-func collectCycle(ctx context.Context, cfg *config.Config, db *gorm.DB) error {
-	var data []models.Event
-	var err error
-	ctx, cancel := context.WithTimeout(ctx, cfg.CollectTimeout)
-	defer cancel()
-	collectGarbage(cfg.RotateAfter, db)
-	if data, err = collector.Collect(ctx); err != nil {
-		return err
-	}
-	events := db.Table("events")
-	var oldHash []string
-	events.Select("hash").Find(&oldHash)
-	err = db.Transaction(
-		func(tx *gorm.DB) error {
-			for _, ev := range data {
-				if slices.Contains(oldHash, ev.Hash) {
-					continue
-				}
-				tx.Create(&ev)
+	wg := new(sync.WaitGroup)
+	wg.Go(
+		func() {
+			err := api.Start(ctx, cfg)
+			if err != nil {
+				l.Error("api server collapsed", zap.Error(err))
+				panic(fmt.Errorf("api server unrecoverable exception: %w", err))
 			}
-			return nil
 		},
 	)
-	if err != nil {
-		return err
-	}
+	wg.Go(
+		func() {
+			err := startCollectService(ctx, cfg)
+			if err != nil {
+				l.Error("scheduler service collapsed", zap.Error(err))
+				panic(fmt.Errorf("scheduler service unrecoverable exception: %w", err))
+			}
+		},
+	)
+	wg.Wait()
 	return nil
 }

@@ -8,13 +8,14 @@ import (
 )
 
 type Event struct {
-	ID      uint   `gorm:"primaryKey"`
-	Hash    string `gorm:"index:idx_event_hash,unique"`
-	City    string `gorm:"size:255;not null"`
-	Address string `gorm:"type:text;not null"`
+	ID      uint   `gorm:"primaryKey" json:"id"`
+	Hash    string `gorm:"index:idx_event_hash,unique" json:"unique_hash"`
+	City    string `gorm:"size:255;not null" json:"city"`
+	Address string `gorm:"type:text;not null" json:"address"`
 
-	Start time.Time
-	End   time.Time
+	Start     time.Time `json:"start"`
+	End       time.Time `json:"end"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func (e *Event) ResetHash() {

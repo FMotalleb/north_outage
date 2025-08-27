@@ -10,6 +10,8 @@ import (
 )
 
 type Config struct {
+	HTTPListenAddr string `mapstructure:"http_listen" default:"{{ env \"HTTP_LISTEN\" }}"`
+
 	TelegramBotID      string `mapstructure:"telegram_bot" default:"{{ env \"TELEGRAM_BOT\" }}" validate:"required"`
 	DatabaseConnection string `mapstructure:"database" default:"{{ or (env \"DATABASE\") \"sqlite:///outage.db\" }}" validate:"required,uri"`
 
