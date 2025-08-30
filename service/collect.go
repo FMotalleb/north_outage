@@ -99,7 +99,7 @@ func collectAndStore(ctx context.Context, cfg *config.Config) error {
 			if _, exists := existingHashes[ev.Hash]; exists {
 				continue
 			}
-			if err := tx.Create(&ev).Error; err != nil {
+			if err = tx.Create(&ev).Error; err != nil {
 				return err
 			}
 		}
