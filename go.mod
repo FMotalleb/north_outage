@@ -13,6 +13,7 @@ require (
 	github.com/fmotalleb/go-tools v0.1.47
 	github.com/fmotalleb/scrapper-go v0.4.4
 	github.com/go-playground/validator/v10 v10.27.0
+	github.com/go-telegram/bot v1.17.0
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/mshafiee/jalali v1.1.0

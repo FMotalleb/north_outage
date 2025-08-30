@@ -2,7 +2,7 @@ collector:
   pipeline:
     browser: chromium
     browser_params:
-      headless: false
+      headless: true
     steps:
       - config:
           timeout: 1500
@@ -31,8 +31,7 @@ collector:
           - element: "#ContentPlaceHolder1_grdOutages"
             on-error: ignore
             mode: table
-            set-var: |-
-              {{ eval "ContentPlaceHolder1_ddlArea.selectedOptions[0].text" }}
+            set-var: '{{ eval "ContentPlaceHolder1_ddlArea.selectedOptions[0].text" }}'
       - loop: |-
           {{ eval `JSON.stringify(
             [...document.querySelectorAll('#ContentPlaceHolder1_ddlCity > option')]
@@ -49,12 +48,11 @@ collector:
           - select: "#ContentPlaceHolder1_ddlCity"
             values: "{{ city }}"
             on-error: ignore
-          - sleep: 50ms
+          - sleep: 150ms
           - nop: |-
               {{ eval `[...document.querySelectorAll('#ContentPlaceHolder1_ddlArea > option')]
                 .map((a) =>  a.innerText)
                 .filter((a) => !a.startsWith("--") )
                 .join(",")`
               }}
-            set-var: |-
-              map.{{ eval "ContentPlaceHolder1_ddlCity.selectedOptions[0].text" }}
+            set-var: map.{{ eval "ContentPlaceHolder1_ddlCity.selectedOptions[0].text" }}

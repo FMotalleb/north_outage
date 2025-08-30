@@ -1,6 +1,6 @@
-http_listen = ":9090"
-telegram_bot = ""
-database = "sqlite://outage.db"
+# http_listen = ":9090"
+# telegram_bot = ""
+# database = "sqlite://outage.db"
 collect_cycle = "@hourly"
 max_age = "1h"
 
