@@ -44,7 +44,7 @@ func startCollectService(ctx context.Context, cfg *config.Config) error {
 		zap.Time("next-run", next),
 		zap.Duration("time-til-next", timeTillNext),
 	)
-	if cfg.CollectOnStart && timeTillNext > cfg.CollectOnStartThreshold {
+	if *cfg.CollectOnStart && timeTillNext > cfg.CollectOnStartThreshold {
 		l.Info(
 			"collect on start threshold reached, starting to collect",
 			zap.Duration("threshold", cfg.CollectOnStartThreshold),

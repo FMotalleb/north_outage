@@ -3,15 +3,25 @@ version: 2
 before:
   hooks:
     - go mod download
+    - go generate ./...
 builds:
-  - env:
+  - id: default
+    env:
       - CGO_ENABLED=0
+    ldflags:
+      - "-s"
+      - "-w"
+      - "-X github.com/FMotalleb/go-tools/git.Version={{.Version}}"
+      - "-X github.com/FMotalleb/go-tools/git.Commit={{.ShortCommit}}"
+      - "-X github.com/FMotalleb/go-tools/git.Date={{.Date}}"
+      - "-X github.com/FMotalleb/go-tools/git.Branch={{.Branch}}"
     goos:
       - darwin
       - linux
       - windows
     goarch:
       - amd64
+
 archives:
   - format_overrides:
       - goos: windows
@@ -19,10 +29,10 @@ archives:
           - zip
 dockers:
   - image_templates:
-    - "ghcr.io/golang-templates/seed:latest"
-    - "ghcr.io/golang-templates/seed:{{ .Major }}"
-    - "ghcr.io/golang-templates/seed:{{ .Major }}.{{ .Minor }}"
-    - "ghcr.io/golang-templates/seed:{{ .Major }}.{{ .Minor }}.{{ .Patch }}"
+    - "ghcr.io/fmotalleb/north_outage:latest"
+    - "ghcr.io/fmotalleb/north_outage:{{ .Major }}"
+    - "ghcr.io/fmotalleb/north_outage:{{ .Major }}.{{ .Minor }}"
+    - "ghcr.io/fmotalleb/north_outage:{{ .Major }}.{{ .Minor }}.{{ .Patch }}"
     build_flag_templates:
     - "--pull"
     # OCI annotations: https://github.com/opencontainers/image-spec/blob/main/annotations.md
@@ -33,6 +43,8 @@ dockers:
     - "--label=org.opencontainers.image.source={{.GitURL}}"
 release:
   github:
+    owner: FMotalleb
+    name: north_outage
   name_template: "{{.Version}}"
   prerelease: auto
   mode: append

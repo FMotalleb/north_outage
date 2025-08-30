@@ -18,7 +18,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"os"
 
 	"github.com/fmotalleb/go-tools/git"
@@ -43,13 +42,8 @@ var rootCmd = &cobra.Command{
 		}
 		return nil
 	},
-	PreRunE: func(_ *cobra.Command, args []string) error {
-		if len(args) == 0 {
-			return errors.New("positional argument required (config file path)")
-		}
-		return nil
-	},
-	RunE: func(_ *cobra.Command, args []string) error {
+
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx := context.Background()
 		ctx = sysctx.CancelWith(ctx, os.Interrupt, os.Kill)
 		var err error
@@ -57,7 +51,11 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 		var cfg *config.Config
-		if cfg, err = config.ReadConfig(ctx, args[0]); err != nil {
+		var cfgPath string
+		if cfgPath, err = cmd.Flags().GetString("config"); err != nil {
+			return err
+		}
+		if cfg, err = config.ReadConfig(ctx, cfgPath); err != nil {
 			return err
 		}
 		ctx = config.Attach(ctx, cfg)
@@ -75,5 +73,6 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().BoolP("verbose", "v", false, "output will be more verbose")
+	rootCmd.Flags().StringP("config", "c", "./config.toml", "config path")
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "output will be more verbose")
 }
