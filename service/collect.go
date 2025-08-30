@@ -52,7 +52,7 @@ func startCollector(ctx context.Context, cfg *config.Config) error {
 		go makeCollectFunc(ctx, cfg)()
 	}
 
-	// Start cron scheduler and block until context is cancelled.
+	// Start cron scheduler and block until context is canceled.
 	go scheduler.Start()
 	<-ctx.Done()
 	if innerCtx := scheduler.Stop(); innerCtx != nil {
