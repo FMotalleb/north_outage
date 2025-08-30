@@ -1,11 +1,11 @@
 package scrapper
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/mshafiee/jalali"
-	"github.com/spf13/cast"
 
 	"github.com/fmotalleb/north_outage/models"
 )
@@ -62,12 +62,17 @@ func normalize(city string, input map[string]string) (*models.Event, bool) {
 func parseJalali(input string) (jalali.JalaliTime, bool) {
 	const size = 3
 	seg := strings.Split(input, "/")
+	zero := jalali.Date(1, 1, 1, 0, 0, 0, 0, time.Local)
 	if len(seg) != size {
-		return jalali.Date(0, 0, 0, 0, 0, 0, 0, time.Local), false
+		return zero, false
 	}
-	y := cast.ToInt(seg[0])
-	m := cast.ToInt(seg[1])
-	d := cast.ToInt(seg[2])
+	parsed, err := atoiSlice(seg...)
+	if err != nil {
+		return zero, false
+	}
+	y := parsed[0]
+	m := parsed[1]
+	d := parsed[2]
 	mn := jalali.Month(m)
 	return jalali.Date(y, mn, d, 0, 0, 0, 0, time.Local), true
 }
@@ -75,11 +80,16 @@ func parseJalali(input string) (jalali.JalaliTime, bool) {
 func parseTime(input string) (time.Duration, bool) {
 	const size = 2
 	seg := strings.Split(input, ":")
+	zero := time.Duration(0)
 	if len(seg) != size {
-		return time.Second * 0, false
+		return zero * 0, false
 	}
-	h := cast.ToInt(seg[0])
-	m := cast.ToInt(seg[1])
+	parsed, err := atoiSlice(seg...)
+	if err != nil {
+		return zero, false
+	}
+	h := parsed[0]
+	m := parsed[1]
 	t := time.Hour*time.Duration(h) + time.Minute*time.Duration(m)
 	return t, true
 }
@@ -129,4 +139,16 @@ func persianFixer(input string) string {
 		}
 	}
 	return out.String()
+}
+
+func atoiSlice(input ...string) ([]int, error) {
+	out := make([]int, len(input))
+	for i, v := range input {
+		value, err := strconv.Atoi(v)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = value
+	}
+	return out, nil
 }
