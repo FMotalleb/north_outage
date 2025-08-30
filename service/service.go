@@ -8,10 +8,10 @@ import (
 	"github.com/fmotalleb/go-tools/log"
 	"go.uber.org/zap"
 
-	"github.com/fmotalleb/north_outage/api"
 	"github.com/fmotalleb/north_outage/config"
 	"github.com/fmotalleb/north_outage/database"
 	"github.com/fmotalleb/north_outage/models"
+	"github.com/fmotalleb/north_outage/web"
 )
 
 func Serve(ctx context.Context) error {
@@ -32,7 +32,7 @@ func Serve(ctx context.Context) error {
 	wg := new(sync.WaitGroup)
 	wg.Go(
 		func() {
-			err := api.Start(ctx, cfg)
+			err := web.Start(ctx, cfg)
 			if err != nil {
 				l.Error("api server collapsed", zap.Error(err))
 				panic(fmt.Errorf("api server unrecoverable exception: %w", err))

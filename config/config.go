@@ -19,5 +19,8 @@ type Config struct {
 	CollectTimeout  time.Duration      `mapstructure:"collect_timeout" default:"{{ or (env \"COLLECT_TIMEOUT\") \"1h\" | parseDuration }}"`
 	CollectorConfig sc.ExecutionConfig `mapstructure:"collector"`
 
+	CollectOnStart          bool          `mapstructure:"collect_on_start" default:"{{ or (env \"COLLECT_ON_START\") \"true\" }}"`
+	CollectOnStartThreshold time.Duration `mapstructure:"collect_on_start_threshold" default:"{{ or (env \"COLLECT_ON_START_THRESHOLD\") \"10m\" }}"`
+
 	RotateAfter time.Duration `mapstructure:"max_age" default:"{{ or (env \"MAX_AGE\") \"1h\" | parseDuration }}"`
 }

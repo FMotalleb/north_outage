@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"time"
 
@@ -19,9 +20,19 @@ import (
 
 func startCollectService(ctx context.Context, cfg *config.Config) error {
 	l := log.FromContext(ctx).Named("Scheduler")
-	scheduler := cron.New(cron.WithParser(cron.NewParser(
+	parser := cron.NewParser(
 		cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor,
-	)))
+	)
+	c, err := parser.Parse(cfg.CollectCycle)
+	if err != nil {
+		return fmt.Errorf("failed to parse given cron string,cron=%s err=%w", cfg.CollectCycle, err)
+	}
+	now := time.Now()
+	next := c.Next(now)
+	timeTillNext := time.Until(next)
+
+	scheduler := cron.New(cron.WithParser(parser))
+
 	j, err := scheduler.AddFunc(cfg.CollectCycle, collectSilent(ctx, cfg))
 	if err != nil {
 		l.Error("failed to register job", zap.Error(err))
@@ -30,7 +41,17 @@ func startCollectService(ctx context.Context, cfg *config.Config) error {
 	l.Info(
 		"collector job registered",
 		zap.Int("id", int(j)),
+		zap.Time("next-run", next),
+		zap.Duration("time-til-next", timeTillNext),
 	)
+	if cfg.CollectOnStart && timeTillNext > cfg.CollectOnStartThreshold {
+		l.Info(
+			"collect on start threshold reached, starting to collect",
+			zap.Duration("threshold", cfg.CollectOnStartThreshold),
+			zap.Duration("time-til-next", timeTillNext),
+		)
+		go collectSilent(ctx, cfg)()
+	}
 	go scheduler.Start()
 	<-ctx.Done()
 	if innerCtx := scheduler.Stop(); innerCtx != nil {
@@ -50,23 +71,19 @@ func collectSilent(ctx context.Context, cfg *config.Config) func() {
 }
 
 func collectCycle(ctx context.Context, cfg *config.Config) error {
-	l := log.FromContext(ctx).Named("EventsGC")
+	l := log.FromContext(ctx).Named("CollectCycle")
 	var data []models.Event
 	var err error
 	ctx, cancel := context.WithTimeout(ctx, cfg.CollectTimeout)
 	defer cancel()
 	db := database.Get()
-	if err = eventsGC(cfg.RotateAfter, db); err != nil {
-		l.Warn("event garbage collector failed (neglected)", zap.Error(err))
-	}
+	l.Info("booting the collector")
 	if data, err = collector.Collect(ctx); err != nil {
 		return err
 	}
-
 	events := db.Table("events")
 	var oldHash []string
 	events.Select("hash").Find(&oldHash)
-
 	err = db.Transaction(
 		func(tx *gorm.DB) error {
 			for _, ev := range data {
@@ -83,6 +100,10 @@ func collectCycle(ctx context.Context, cfg *config.Config) error {
 	)
 	if err != nil {
 		return err
+	}
+	if err = eventsGC(cfg.RotateAfter, db); err != nil {
+		l := log.FromContext(ctx).Named("EventsGC")
+		l.Warn("event garbage collector failed (neglected)", zap.Error(err))
 	}
 	return nil
 }
