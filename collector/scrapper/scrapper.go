@@ -15,84 +15,90 @@ import (
 	"github.com/fmotalleb/north_outage/models"
 )
 
-func Collect(ctx context.Context) ([]models.Event, error) {
-	l := log.FromContext(ctx).Named("scraper")
+// Run executes the configured collector engine and returns a deduplicated list of events.
+func Run(ctx context.Context) ([]models.Event, error) {
+	logger := log.FromContext(ctx).Named("collector")
+
 	cfg, err := config.Get(ctx)
 	if err != nil {
 		return nil, err
 	}
-	result, err := engine.ExecuteConfig(ctx, cfg.CollectorConfig)
+
+	rawResult, err := engine.ExecuteConfig(ctx, cfg.CollectorConfig)
 	if err != nil {
-		l.Error("scrapper fatal error", zap.Error(err))
+		logger.Error("collector execution failed", zap.Error(err))
 		return nil, err
 	}
-	l.Info("scrape finished")
-	events, err := reshape(result)
-	if err != nil {
-		errs, ok := err.(interface {
-			Unwrap() []error
-		})
-		var field zap.Field
-		if ok {
-			field = zap.Errors("errors", errs.Unwrap())
+
+	logger.Info("collector finished successfully")
+
+	events, reshapeErr := transformResult(rawResult)
+	if reshapeErr != nil {
+		// Preserve detailed error reporting but keep the main flow working.
+		if multiErr, ok := reshapeErr.(interface{ Unwrap() []error }); ok {
+			logger.Error("transform produced some errors (ignored)", zap.Errors("errors", multiErr.Unwrap()))
 		} else {
-			field = zap.Error(err)
+			logger.Error("transform produced some errors (ignored)", zap.Error(reshapeErr))
 		}
-		l.Error("reshape faced some errors (neglected)", field)
 	}
+
 	return events, nil
 }
 
-func reshape(input map[string]any) ([]models.Event, error) {
-	repeats := make(map[string]int)
-	result := make([]models.Event, 0)
-	allErrs := make([]error, 0)
-	collect := func(k string) []map[string]string {
-		v := input[k]
-		switch v := v.(type) {
-		case []map[string]any:
-			dst := make([]map[string]string, len(v))
-			if err := decoder.Decode(&dst, v); err != nil {
-				allErrs = append(allErrs, err)
-			}
-			return dst
-		default:
-			return []map[string]string{}
-		}
-	}
+// transformResult converts engine output into []models.Event, deduplicating by Hash.
+func transformResult(data map[string]any) ([]models.Event, error) {
+	seen := make(map[string]struct{})
+	events := make([]models.Event, 0)
+	var errs []error
 
-	for k, v := range input {
-		if !strings.HasPrefix(k, "map.") {
-			continue
-		}
-		k = strings.TrimPrefix(k, "map.")
-		refs, ok := v.(string)
+	// helper to decode a reference key into a []map[string]string
+	decodeRef := func(ref string) []map[string]string {
+		val, ok := data[ref]
 		if !ok {
-			er := fmt.Errorf("unexpected mapping type, required `string` got `%T`", v)
-			allErrs = append(allErrs, er)
+			return nil
+		}
+		list, ok := val.([]map[string]any)
+		if !ok {
+			return nil
+		}
+
+		dst := make([]map[string]string, len(list))
+		if err := decoder.Decode(&dst, list); err != nil {
+			errs = append(errs, fmt.Errorf("failed to decode %q: %w", ref, err))
+		}
+		return dst
+	}
+
+	for key, value := range data {
+		if !strings.HasPrefix(key, "map.") {
 			continue
 		}
 
-		for _, ref := range strings.Split(refs, ",") {
-			data := collect(ref)
-			for _, v := range data {
-				ev, ok := normalize(k, v)
+		mapName := strings.TrimPrefix(key, "map.")
+		refString, ok := value.(string)
+		if !ok {
+			errs = append(errs, fmt.Errorf("invalid mapping type for %q: expected string, got %T", key, value))
+			continue
+		}
+
+		for _, ref := range strings.Split(refString, ",") {
+			for _, row := range decodeRef(ref) {
+				ev, ok := normalize(mapName, row)
 				if !ok {
-					er := fmt.Errorf("failed to normalize input, %v", v)
-					allErrs = append(allErrs, er)
+					errs = append(errs, fmt.Errorf("failed to normalize entry for %q: %v", mapName, row))
 					continue
 				}
-				if repeats[ev.Hash] > 0 {
+				if _, exists := seen[ev.Hash]; exists {
 					continue
 				}
-				repeats[ev.Hash]++
-				result = append(result, *ev)
+				seen[ev.Hash] = struct{}{}
+				events = append(events, *ev)
 			}
 		}
 	}
-	var err error
-	if len(allErrs) != 0 {
-		err = errors.Join(allErrs...)
+
+	if len(errs) > 0 {
+		return events, errors.Join(errs...)
 	}
-	return result, err
+	return events, nil
 }

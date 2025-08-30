@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"slices"
 	"time"
 
 	"go.uber.org/zap"
@@ -18,40 +17,42 @@ import (
 	"github.com/fmotalleb/north_outage/models"
 )
 
-func startCollectService(ctx context.Context, cfg *config.Config) error {
-	l := log.FromContext(ctx).Named("Scheduler")
-	parser := cron.NewParser(
-		cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor,
-	)
-	c, err := parser.Parse(cfg.CollectCycle)
+// StartCollector schedules and runs the periodic event collection job.
+func startCollector(ctx context.Context, cfg *config.Config) error {
+	logger := log.FromContext(ctx).Named("CollectorScheduler")
+
+	parser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
+	schedule, err := parser.Parse(cfg.CollectCycle)
 	if err != nil {
-		return fmt.Errorf("failed to parse given cron string,cron=%s err=%w", cfg.CollectCycle, err)
+		return fmt.Errorf("invalid cron expression: %s: %w", cfg.CollectCycle, err)
 	}
-	now := time.Now()
-	next := c.Next(now)
-	timeTillNext := time.Until(next)
+
+	nextRun := schedule.Next(time.Now())
+	timeUntilNext := time.Until(nextRun)
 
 	scheduler := cron.New(cron.WithParser(parser))
-
-	j, err := scheduler.AddFunc(cfg.CollectCycle, collectSilent(ctx, cfg))
+	jobID, err := scheduler.AddFunc(cfg.CollectCycle, makeCollectFunc(ctx, cfg))
 	if err != nil {
-		l.Error("failed to register job", zap.Error(err))
+		logger.Error("failed to register collector job", zap.Error(err))
 		return err
 	}
-	l.Info(
-		"collector job registered",
-		zap.Int("id", int(j)),
-		zap.Time("next-run", next),
-		zap.Duration("time-til-next", timeTillNext),
+
+	logger.Info("collector job scheduled",
+		zap.Int("jobID", int(jobID)),
+		zap.Time("nextRun", nextRun),
+		zap.Duration("timeUntilNext", timeUntilNext),
 	)
-	if *cfg.CollectOnStart && timeTillNext > cfg.CollectOnStartThreshold {
-		l.Info(
-			"collect on start threshold reached, starting to collect",
+
+	// Trigger immediate collection if threshold is met.
+	if *cfg.CollectOnStart && timeUntilNext > cfg.CollectOnStartThreshold {
+		logger.Info("triggering immediate collection on start",
 			zap.Duration("threshold", cfg.CollectOnStartThreshold),
-			zap.Duration("time-til-next", timeTillNext),
+			zap.Duration("timeUntilNext", timeUntilNext),
 		)
-		go collectSilent(ctx, cfg)()
+		go makeCollectFunc(ctx, cfg)()
 	}
+
+	// Start cron scheduler and block until context is cancelled.
 	go scheduler.Start()
 	<-ctx.Done()
 	if innerCtx := scheduler.Stop(); innerCtx != nil {
@@ -60,65 +61,64 @@ func startCollectService(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func collectSilent(ctx context.Context, cfg *config.Config) func() {
-	l := log.FromContext(ctx).Named("CollectCycle")
+// makeCollectFunc wraps collectAndStore in a cron-compatible function.
+func makeCollectFunc(ctx context.Context, cfg *config.Config) func() {
+	logger := log.FromContext(ctx).Named("CollectorJob")
 	return func() {
-		l.Debug("collect cycle began")
-		if err := collectCycle(ctx, cfg); err != nil {
-			l.Error("unhandled exception in collector cycle", zap.Error(err))
+		logger.Debug("collector cycle started")
+		if err := collectAndStore(ctx, cfg); err != nil {
+			logger.Error("collector cycle failed", zap.Error(err))
 		}
 	}
 }
 
-func collectCycle(ctx context.Context, cfg *config.Config) error {
-	l := log.FromContext(ctx).Named("CollectCycle")
-	var data []models.Event
-	var err error
+// collectAndStore runs the collector, deduplicates results, persists new events, and triggers GC.
+func collectAndStore(ctx context.Context, cfg *config.Config) error {
+	logger := log.FromContext(ctx).Named("CollectorCycle")
 	ctx, cancel := context.WithTimeout(ctx, cfg.CollectTimeout)
 	defer cancel()
+
 	db := database.Get()
-	l.Info("booting the collector")
-	if data, err = collector.Collect(ctx); err != nil {
-		return err
-	}
-	events := db.Table("events")
-	var oldHash []string
-	events.Select("hash").Find(&oldHash)
-	err = db.Transaction(
-		func(tx *gorm.DB) error {
-			for _, ev := range data {
-				if slices.Contains(oldHash, ev.Hash) {
-					continue
-				}
-				tx = tx.Create(&ev)
-				if err = tx.Error; err != nil {
-					return err
-				}
-			}
-			return nil
-		},
-	)
+	logger.Info("starting data collection")
+
+	events, err := collector.Collect(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("collector failed: %w", err)
 	}
-	if err = eventsGC(cfg.RotateAfter, db); err != nil {
-		l := log.FromContext(ctx).Named("EventsGC")
-		l.Warn("event garbage collector failed (neglected)", zap.Error(err))
+
+	// Deduplicate against database hashes.
+	existingHashes := make(map[string]struct{})
+	var storedHashes []string
+	db.Table("events").Select("hash").Find(&storedHashes)
+	for _, h := range storedHashes {
+		existingHashes[h] = struct{}{}
+	}
+
+	err = db.Transaction(func(tx *gorm.DB) error {
+		for _, ev := range events {
+			if _, exists := existingHashes[ev.Hash]; exists {
+				continue
+			}
+			if err := tx.Create(&ev).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to persist events: %w", err)
+	}
+
+	if gcErr := runEventsGC(cfg.RotateAfter, db); gcErr != nil {
+		logger.Warn("event garbage collection failed", zap.Error(gcErr))
 	}
 	return nil
 }
 
-func eventsGC(maxAge time.Duration, db *gorm.DB) error {
-	events := db.Table("events")
-	before := time.Now().Truncate(maxAge)
-	err := events.Transaction(
-		func(tx *gorm.DB) error {
-			res := tx.Where("end <= ?", before).Delete(true)
-			return res.Error
-		},
-	)
-	if err != nil {
-		return err
-	}
-	return nil
+// runEventsGC removes expired events from the database based on maxAge.
+func runEventsGC(maxAge time.Duration, db *gorm.DB) error {
+	cutoff := time.Now().Add(-maxAge)
+	return db.Transaction(func(tx *gorm.DB) error {
+		return tx.Where("end <= ?", cutoff).Unscoped().Delete(&models.Event{}).Error
+	})
 }

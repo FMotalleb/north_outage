@@ -41,7 +41,7 @@ func Serve(ctx context.Context) error {
 	)
 	wg.Go(
 		func() {
-			err := startCollectService(ctx, cfg)
+			err := startCollector(ctx, cfg)
 			if err != nil {
 				l.Error("scheduler service collapsed", zap.Error(err))
 				panic(fmt.Errorf("scheduler service unrecoverable exception: %w", err))

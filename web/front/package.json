@@ -18,6 +18,7 @@
     "react-datepicker": "^8.7.0",
     "react-datepicker-jalali": "^0.0.3",
     "react-dom": "^18.3.1",
+    "react-multi-date-picker": "^4.5.2",
     "recharts": "^3.1.2"
   },
   "devDependencies": {

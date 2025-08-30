@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { MapPin, Search, Calendar, X } from "lucide-react";
+// import { MapPin, Search, Calendar, X } from "lucide-react";
 import FilterPanel from "./FilterPanel";
 import ResultCard from "./ResultCard";
 import EmptyState from "./EmptyState";
 import { DataItem, FilterState } from "../types";
 import "./DataFilterSystem.css";
-import OutageChart from "./OutageChart";
 
 const DataFilterSystem: React.FC = () => {
   const [data, setData] = useState<DataItem[]>([]);
@@ -18,7 +17,7 @@ const DataFilterSystem: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch("http://127.0.0.1:9090/events");
+        const response = await fetch("/events");
         const jsonData = await response.json();
         setData(jsonData);
       } catch (error) {
@@ -69,7 +68,7 @@ const DataFilterSystem: React.FC = () => {
 
   const clearAllFilters = () => {
     setFilters({
-      city: "",
+      city: "ساری",
       date: "",
       address: "",
     });
@@ -78,7 +77,7 @@ const DataFilterSystem: React.FC = () => {
   return (
     <div className="data-filter-container">
       <div className="header">
-        <h1>سیستم مدیریت رویدادها</h1>
+        <h1>سیستم مشاهده قطعی برق</h1>
         <p>فیلتر و جستجوی قطعی‌های برق شهری</p>
       </div>
 
@@ -88,8 +87,8 @@ const DataFilterSystem: React.FC = () => {
         onFilterChange={handleFilterChange}
         onClearFilters={clearAllFilters}
       />
-
-      <OutageChart data={filteredData} />
+      {/* 
+      <OutageChart data={filteredData} /> */}
 
       <div className="results-count">{filteredData.length} نتیجه یافت شد</div>
 
@@ -99,7 +98,9 @@ const DataFilterSystem: React.FC = () => {
         ) : filteredData.length === 0 ? (
           <EmptyState />
         ) : (
-          filteredData.map((item) => <ResultCard key={item.id} data={item} />)
+          filteredData
+            .slice(0, 20)
+            .map((item) => <ResultCard key={item.id} data={item} />)
         )}
       </div>
     </div>

@@ -12,7 +12,7 @@ import (
 func Collect(ctx context.Context) ([]models.Event, error) {
 	l := log.FromContext(ctx).Named("collector")
 	ctx = log.WithLogger(ctx, l)
-	events, err := scrapper.Collect(ctx)
+	events, err := scrapper.Run(ctx)
 	if err != nil {
 		return nil, err
 	}
