@@ -1,4 +1,4 @@
-package api
+package web
 
 import (
 	"context"
@@ -13,18 +13,22 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-var api = echo.New()
+var server = echo.New()
+
+func RegisterEndpoint(register func(*echo.Echo)) {
+	register(server)
+}
 
 func init() {
-	api.Use(middleware.Logger())
-	api.Use(middleware.Recover())
+	server.Use(middleware.Logger())
+	server.Use(middleware.Recover())
 }
 
 func Start(ctx context.Context, cfg *config.Config) error {
 	if cfg.HTTPListenAddr == "" {
 		return nil
 	}
-	api.Server = &http.Server{
+	server.Server = &http.Server{
 		ReadTimeout:       time.Minute,
 		ReadHeaderTimeout: time.Minute,
 		IdleTimeout:       time.Minute,
@@ -33,7 +37,7 @@ func Start(ctx context.Context, cfg *config.Config) error {
 			return ctx
 		},
 	}
-	if err := api.Start(cfg.HTTPListenAddr); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err := server.Start(cfg.HTTPListenAddr); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil

@@ -1,4 +1,4 @@
-package api
+package web
 
 import (
 	"net/http"
@@ -11,7 +11,11 @@ import (
 )
 
 func init() {
-	api.GET("/events", events)
+	RegisterEndpoint(
+		func(api *echo.Echo) {
+			api.GET("/events", events)
+		},
+	)
 }
 
 func events(c echo.Context) error {
