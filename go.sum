@@ -444,8 +444,8 @@ github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/firefart/nonamedreturns v1.0.5 h1:tM+Me2ZaXs8tfdDw3X6DOX++wMCOqzYUho6tUTYIdRA=
 github.com/firefart/nonamedreturns v1.0.5/go.mod h1:gHJjDqhGM4WyPt639SOZs+G89Ko7QKH5R5BhnO6xJhw=
-github.com/fmotalleb/go-tools v0.1.47 h1:zYfzx/sW/y8M7jDGLpcc1vfEkWzsTmEKld3zVqOJtyE=
-github.com/fmotalleb/go-tools v0.1.47/go.mod h1:RdT07cZc3QH8/U18SfMtQbXJUBWfZryvziZMBavamKw=
+github.com/fmotalleb/go-tools v0.1.49 h1:vI9SSRT510X20KHL9i7zrGB2kNmPHTY2S+boYWV3/K4=
+github.com/fmotalleb/go-tools v0.1.49/go.mod h1:RdT07cZc3QH8/U18SfMtQbXJUBWfZryvziZMBavamKw=
 github.com/fmotalleb/scrapper-go v0.4.4 h1:iV2B03a860vcGEWdP42WPX4fCf2u+Q2zZWlu1eb0dco=
 github.com/fmotalleb/scrapper-go v0.4.4/go.mod h1:yW+JMuk9yXEz/rL2npRw3qXFZq8BlH4NdFrGeuHxn34=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=

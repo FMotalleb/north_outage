@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net/url"
 	"time"
 
 	// Autoload .env file.
@@ -10,17 +11,25 @@ import (
 )
 
 type Config struct {
-	HTTPListenAddr string `mapstructure:"http_listen" default:"{{ env \"HTTP_LISTEN\" }}"`
+	HTTPListenAddr string `mapstructure:"http_listen" env:"HTTP_LISTEN"`
 
-	TelegramBotKey     string `mapstructure:"telegram_bot" default:"{{ env \"TELEGRAM_BOT\" }}" validate:"required"`
-	DatabaseConnection string `mapstructure:"database" default:"{{ or (env \"DATABASE\") \"sqlite:///outage.db\" }}" validate:"required,uri"`
+	Telegram Telegram `mapstructure:"telegram"`
 
-	CollectCycle    string             `mapstructure:"collect_cycle" default:"{{ or (env \"COLLECT_CRON\") \"0 0 * * * *\" }}" validate:"required,cron"`
-	CollectTimeout  time.Duration      `mapstructure:"collect_timeout" default:"{{ or (env \"COLLECT_TIMEOUT\") \"1h\" | parseDuration }}"`
+	DatabaseConnection string `mapstructure:"database" env:"DATABASE" default:"sqlite:///outage.db" validate:"required,uri"`
+
+	CollectCycle    string             `mapstructure:"collect_cycle" env:"COLLECT_CRON" default:"0 0 * * * *" validate:"required,cron"`
+	CollectTimeout  time.Duration      `mapstructure:"collect_timeout" env:"COLLECT_TIMEOUT" default:"1h"`
 	CollectorConfig sc.ExecutionConfig `mapstructure:"collector"`
 
-	CollectOnStart          *bool         `mapstructure:"collect_on_start" default:"{{ or (env \"COLLECT_ON_START\") \"true\" }}"`
-	CollectOnStartThreshold time.Duration `mapstructure:"collect_on_start_threshold" default:"{{ or (env \"COLLECT_ON_START_THRESHOLD\") \"10m\" }}"`
+	CollectOnStart          *bool         `mapstructure:"collect_on_start" env:"COLLECT_ON_START" default:"true"`
+	CollectOnStartThreshold time.Duration `mapstructure:"collect_on_start_threshold" env:"COLLECT_ON_START_THRESHOLD" default:"10m"`
 
-	RotateAfter time.Duration `mapstructure:"max_age" default:"{{ or (env \"MAX_AGE\") \"1h\" | parseDuration }}"`
+	RotateAfter time.Duration `mapstructure:"max_age" env:"MAX_AGE" default:"1h"`
+}
+
+type Telegram struct {
+	BotKey   string        `mapstructure:"key" env:"TELEGRAM_BOT" validate:"required"`
+	Timeout  time.Duration `mapstructure:"timeout" env:"TELEGRAM_BOT_TIMEOUT" default:"30s" validate:"required"`
+	Proxy    url.URL       `mapstructure:"proxy" env:"TELEGRAM_BOT_PROXY"`
+	Endpoint url.URL       `mapstructure:"api" env:"TELEGRAM_BOT_ENDPOINT" default:"https://api.telegram.org" validate:"required"`
 }
