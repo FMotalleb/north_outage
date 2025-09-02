@@ -1,6 +1,7 @@
 package scrapper
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -124,21 +125,24 @@ var replacements = map[rune]rune{
 	'٨': '8',
 	'٩': '9',
 }
+var sanitizer = regexp.MustCompile("\\s\\s+")
 
 func persianFixer(input string) string {
-	var out strings.Builder
+	var b strings.Builder
 	for _, r := range input {
 		// Remove Arabic diacritics
 		if r >= 0x064B && r <= 0x0652 {
 			continue
 		}
 		if rep, ok := replacements[r]; ok {
-			out.WriteRune(rep)
+			b.WriteRune(rep)
 		} else {
-			out.WriteRune(r)
+			b.WriteRune(r)
 		}
 	}
-	return out.String()
+	spaced := b.String()
+	result := sanitizer.ReplaceAllString(spaced, " ")
+	return result
 }
 
 func atoiSlice(input ...string) ([]int, error) {

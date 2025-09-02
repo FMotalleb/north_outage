@@ -8,13 +8,14 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/fmotalleb/north_outage/config"
+	"github.com/fmotalleb/north_outage/telegram/handlers"
 
 	"github.com/go-telegram/bot"
-	"github.com/go-telegram/bot/models"
 )
 
 func Run(ctx context.Context, cfg *config.Config) error {
 	l := log.Of(ctx).Named("Telegram")
+	ctx = log.WithLogger(ctx, l)
 	tel := cfg.Telegram
 	if tel.BotKey == "" {
 		l.Warn("telegram bot token is not set")
@@ -32,12 +33,7 @@ func Run(ctx context.Context, cfg *config.Config) error {
 		l.Error("failed to connect to telegram bot", zap.Error(err))
 		return err
 	}
-	b.RegisterHandler(bot.HandlerTypeMessageText, "/start", bot.MatchTypePrefix, func(ctx context.Context, b *bot.Bot, update *models.Update) {
-		msg := new(bot.SendMessageParams)
-		msg.ChatID = update.Message.Chat.ID
-		msg.Text = update.Message.Text
-		b.SendMessage(ctx, msg)
-	})
+	handlers.SetupHandlers(b)
 	b.Start(ctx)
 	return nil
 }

@@ -29,3 +29,30 @@ func (e *Event) ResetHash() {
 	hash := sha256.Sum256([]byte(data))
 	e.Hash = hex.EncodeToString(hash[:])
 }
+
+var clockMapper = map[int]string{
+	0:  "🕛",
+	1:  "🕐",
+	2:  "🕑",
+	3:  "🕒",
+	4:  "🕓",
+	5:  "🕔",
+	6:  "🕕",
+	7:  "🕖",
+	8:  "🕗",
+	9:  "🕘",
+	10: "🕙",
+	11: "🕚",
+}
+
+func getClockOf(hour int) string {
+	return clockMapper[hour%12]
+}
+
+func (e *Event) StartClock() string {
+	return getClockOf(e.Start.Hour())
+}
+
+func (e *Event) EndClock() string {
+	return getClockOf(e.End.Hour())
+}
