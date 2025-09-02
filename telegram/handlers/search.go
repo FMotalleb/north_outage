@@ -14,6 +14,8 @@ import (
 	"github.com/fmotalleb/north_outage/telegram/template"
 )
 
+const maxSearchResult = 10
+
 func init() {
 	register(
 		func(b *bot.Bot) {
@@ -27,18 +29,24 @@ func search(ctx context.Context, b *bot.Bot, update *models.Update) {
 	l := log.Of(ctx).Named("search")
 	// mp := new(bot.SendMessageParams)
 	input := update.Message
-	events := fetchEvents(input.Text)
-	data := map[string]any{
-		"results": events,
-	}
-	mp := helpers.MakeMessage(update)
+	events, err := fetchEvents(input.Text)
 
-	out, err := template.EvaluateTemplate(template.Search, data, update)
+	mp := helpers.MakeMessage(update)
 	if err != nil {
-		l.Error("failed to evaluate template", zap.Error(err), zap.Any("chat", update.Message.Chat))
-		mp.Text = "خطایی در نمایش خروجی پیش اومده"
+		l.Error("failed to fetch data from db", zap.Error(err))
+		mp.Text = "خطا در دریافت داده"
 	} else {
-		mp.Text = out
+		data := map[string]any{
+			"results": events,
+		}
+		var out string
+		out, err = template.EvaluateTemplate(template.Search, data, update)
+		if err != nil {
+			l.Error("failed to evaluate template", zap.Error(err), zap.Any("chat", update.Message.Chat))
+			mp.Text = "خطایی در نمایش خروجی پیش اومده"
+		} else {
+			mp.Text = out
+		}
 	}
 
 	msg, err := b.SendMessage(ctx, mp)
@@ -50,25 +58,23 @@ func search(ctx context.Context, b *bot.Bot, update *models.Update) {
 }
 
 func shouldSearch(update *models.Update) bool {
-	search := update.Message.Text
-	out := make([]im.Event, 0, 1)
-	database.Get().
+	query := update.Message.Text
+	var exists bool
+	err := database.Get().
 		Table("events").
-		Where("address LIKE ?", "%"+search+"%").
+		Select("1").
+		Where("address LIKE ?", "%"+query+"%").
 		Limit(1).
-		Find(&out)
-	if len(out) == 0 {
-		return false
-	}
-	return true
+		Scan(&exists).Error
+	return err == nil && exists
 }
 
-func fetchEvents(search string) []im.Event {
-	out := make([]im.Event, 0, 10)
-	database.Get().
+func fetchEvents(search string) ([]im.Event, error) {
+	out := make([]im.Event, 0, maxSearchResult)
+	err := database.Get().
 		Table("events").
 		Where("address LIKE ?", "%"+search+"%").
-		Limit(10).
-		Find(&out)
-	return out
+		Limit(maxSearchResult).
+		Find(&out).Error
+	return out, err
 }

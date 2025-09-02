@@ -15,6 +15,7 @@ func init() {
 	register(
 		func(b *bot.Bot) {
 			b.RegisterHandler(bot.HandlerTypeMessageText, "/start", bot.MatchTypePrefix, hello)
+			b.RegisterHandler(bot.HandlerTypeMessageText, "/help", bot.MatchTypePrefix, hello)
 		},
 	)
 }
