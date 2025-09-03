@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"context"
+
 	"github.com/go-telegram/bot"
 )
 
-type TGHandlerRegistrant = func(*bot.Bot)
+type TGHandlerRegistrant = func(context.Context, *bot.Bot)
 
 var (
 	registrants []TGHandlerRegistrant
@@ -20,9 +22,9 @@ func register(r TGHandlerRegistrant) {
 	registrants = append(registrants, r)
 }
 
-func SetupHandlers(b *bot.Bot) {
+func SetupHandlers(ctx context.Context, b *bot.Bot) {
 	finalized = true
 	for _, h := range registrants {
-		h(b)
+		h(ctx, b)
 	}
 }

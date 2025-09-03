@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"strings"
 
 	"github.com/fmotalleb/go-tools/log"
 	"github.com/go-telegram/bot"
@@ -14,12 +15,15 @@ import (
 	"github.com/fmotalleb/north_outage/telegram/template"
 )
 
-const maxSearchResult = 10
+const (
+	maxSearchResult = 10
+	searchCMD       = "/search"
+)
 
 func init() {
 	register(
-		func(b *bot.Bot) {
-			b.RegisterHandler(bot.HandlerTypeMessageText, "/search", bot.MatchTypePrefix, search)
+		func(_ context.Context, b *bot.Bot) {
+			b.RegisterHandler(bot.HandlerTypeMessageText, searchCMD, bot.MatchTypePrefix, search)
 			b.RegisterHandlerMatchFunc(shouldSearch, search)
 		},
 	)
@@ -29,7 +33,8 @@ func search(ctx context.Context, b *bot.Bot, update *models.Update) {
 	l := log.Of(ctx).Named("search")
 	// mp := new(bot.SendMessageParams)
 	input := update.Message
-	events, err := fetchEvents(input.Text)
+	search := strings.TrimPrefix(input.Text, searchCMD)
+	events, err := fetchEvents(search)
 
 	mp := helpers.MakeMessage(update)
 	if err != nil {

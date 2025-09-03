@@ -33,7 +33,7 @@ func Run(ctx context.Context, cfg *config.Config) error {
 		l.Error("failed to connect to telegram bot", zap.Error(err))
 		return err
 	}
-	handlers.SetupHandlers(b)
+	handlers.SetupHandlers(ctx, b)
 	b.Start(ctx)
 	return nil
 }
