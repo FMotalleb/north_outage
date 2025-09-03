@@ -8,6 +8,9 @@ import (
 func MakeMessage(update *models.Update) *bot.SendMessageParams {
 	mp := new(bot.SendMessageParams)
 	input := update.Message
+	if input == nil {
+		input = update.CallbackQuery.Message.Message
+	}
 	mp.ChatID = input.Chat.ID
 	mp.ParseMode = models.ParseModeHTML
 	mp.Text = "If you see this message there is a bug in the application, please report to @fmotalleb"

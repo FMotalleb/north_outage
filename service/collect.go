@@ -18,7 +18,7 @@ import (
 )
 
 // StartCollector schedules and runs the periodic event collection job.
-func startCollector(ctx context.Context, cfg *config.Config) error {
+func startCollector(ctx context.Context, cfg *config.Config, ec chan models.Event) error {
 	logger := log.FromContext(ctx).Named("CollectorScheduler")
 
 	parser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
@@ -31,7 +31,7 @@ func startCollector(ctx context.Context, cfg *config.Config) error {
 	timeUntilNext := time.Until(nextRun)
 
 	scheduler := cron.New(cron.WithParser(parser))
-	jobID, err := scheduler.AddFunc(cfg.CollectCycle, makeCollectFunc(ctx, cfg))
+	jobID, err := scheduler.AddFunc(cfg.CollectCycle, makeCollectFunc(ctx, cfg, ec))
 	if err != nil {
 		logger.Error("failed to register collector job", zap.Error(err))
 		return err
@@ -49,7 +49,7 @@ func startCollector(ctx context.Context, cfg *config.Config) error {
 			zap.Duration("threshold", cfg.CollectOnStartThreshold),
 			zap.Duration("timeUntilNext", timeUntilNext),
 		)
-		go makeCollectFunc(ctx, cfg)()
+		go makeCollectFunc(ctx, cfg, ec)()
 	}
 
 	// Start cron scheduler and block until context is canceled.
@@ -62,18 +62,24 @@ func startCollector(ctx context.Context, cfg *config.Config) error {
 }
 
 // makeCollectFunc wraps collectAndStore in a cron-compatible function.
-func makeCollectFunc(ctx context.Context, cfg *config.Config) func() {
+func makeCollectFunc(ctx context.Context, cfg *config.Config, ec chan models.Event) func() {
 	logger := log.FromContext(ctx).Named("CollectorJob")
 	return func() {
 		logger.Debug("collector cycle started")
-		if err := collectAndStore(ctx, cfg); err != nil {
+		if events, err := collectAndStore(ctx, cfg); err != nil {
 			logger.Error("collector cycle failed", zap.Error(err))
+		} else {
+			go func() {
+				for _, e := range events {
+					ec <- e
+				}
+			}()
 		}
 	}
 }
 
 // collectAndStore runs the collector, deduplicates results, persists new events, and triggers GC.
-func collectAndStore(ctx context.Context, cfg *config.Config) error {
+func collectAndStore(ctx context.Context, cfg *config.Config) ([]models.Event, error) {
 	logger := log.FromContext(ctx).Named("CollectorCycle")
 	ctx, cancel := context.WithTimeout(ctx, cfg.CollectTimeout)
 	defer cancel()
@@ -83,7 +89,7 @@ func collectAndStore(ctx context.Context, cfg *config.Config) error {
 
 	events, err := collector.Collect(ctx)
 	if err != nil {
-		return fmt.Errorf("collector failed: %w", err)
+		return nil, fmt.Errorf("collector failed: %w", err)
 	}
 
 	// Deduplicate against database hashes.
@@ -106,13 +112,13 @@ func collectAndStore(ctx context.Context, cfg *config.Config) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to persist events: %w", err)
+		return nil, fmt.Errorf("failed to persist events: %w", err)
 	}
 
 	if gcErr := runEventsGC(cfg.RotateAfter, db); gcErr != nil {
 		logger.Warn("event garbage collection failed", zap.Error(gcErr))
 	}
-	return nil
+	return events, nil
 }
 
 // runEventsGC removes expired events from the database based on maxAge.

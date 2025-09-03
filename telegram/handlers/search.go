@@ -31,7 +31,6 @@ func init() {
 
 func search(ctx context.Context, b *bot.Bot, update *models.Update) {
 	l := log.Of(ctx).Named("search")
-	// mp := new(bot.SendMessageParams)
 	input := update.Message
 	search := strings.TrimPrefix(input.Text, searchCMD)
 	events, err := fetchEvents(search)
@@ -51,6 +50,13 @@ func search(ctx context.Context, b *bot.Bot, update *models.Update) {
 			mp.Text = "خطایی در نمایش خروجی پیش اومده"
 		} else {
 			mp.Text = out
+		}
+	}
+
+	// Build buttons for each unique city
+	if len(events) > 0 {
+		mp.ReplyMarkup = &models.InlineKeyboardMarkup{
+			InlineKeyboard: buildBtns(search, events),
 		}
 	}
 
@@ -85,7 +91,20 @@ func fetchEvents(search string) ([]im.Event, error) {
 	return out, err
 }
 
-func appendButtons(mp *bot.SendMessageParams) {
-	kb := new(models.ReplyParameters)
-	kb.
+func buildBtns(search string, events []im.Event) [][]models.InlineKeyboardButton {
+	cityButtons := make([][]models.InlineKeyboardButton, 0)
+	seen := make(map[string]struct{})
+	for _, ev := range events {
+		if _, ok := seen[ev.City]; ok {
+			continue
+		}
+		seen[ev.City] = struct{}{}
+
+		btn := models.InlineKeyboardButton{
+			Text:         "🔍 " + ev.City,                             // Glass icon + city name
+			CallbackData: "listen:" + createRequest(search, ev.City), // will be handled by callback
+		}
+		cityButtons = append(cityButtons, []models.InlineKeyboardButton{btn})
+	}
+	return cityButtons
 }
