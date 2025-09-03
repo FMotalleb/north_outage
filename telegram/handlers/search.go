@@ -56,7 +56,7 @@ func search(ctx context.Context, b *bot.Bot, update *models.Update) {
 
 	msg, err := b.SendMessage(ctx, mp)
 	if err != nil {
-		l.Error("failed to send hello message", zap.Error(err))
+		l.Error("failed to send search results", zap.Error(err))
 		return
 	}
 	l.Debug("sent message", zap.Int("id", msg.ID))
@@ -81,5 +81,11 @@ func fetchEvents(search string) ([]im.Event, error) {
 		Where("address LIKE ?", "%"+search+"%").
 		Limit(maxSearchResult).
 		Find(&out).Error
+	// sortEvents(out)
 	return out, err
+}
+
+func appendButtons(mp *bot.SendMessageParams) {
+	kb := new(models.ReplyParameters)
+	kb.
 }

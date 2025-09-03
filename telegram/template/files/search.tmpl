@@ -1,8 +1,9 @@
 🤖 موارد یافت شده: {{ .results | len | itoa | fanum }}
 {{- range $i, $e := .results }}
 
-• <b>{{ $e.Start | relDate }}</b> {{ $e.Start | jFormat "%w %Y/%m/%d %B" | fanum }} <b>{{ $e.StartClock }}{{ $e.Start | jFormat "%R" | fanum }}</b> تا <b>{{ $e.EndClock }}{{ $e.End | jFormat "%R" | fanum }}</b>
-  <b>{{ $e.City }}</b> - {{ $e.Address }}
+🗓 <b>{{ $e.Start | relDate }}</b> {{ $e.Start | jFormat "%w %Y/%m/%d %B" | fanum }}
+⏰ <b>{{ $e.StartClock }}{{ $e.Start | jFormat "%R" | fanum }}</b> تا <b>{{ $e.EndClock }}{{ $e.End | jFormat "%R" | fanum }}</b>
+🏠 <b>{{ $e.City }}</b> - {{ $e.Address }}
 {{- end }}
 
 📌 توضیحات:  
